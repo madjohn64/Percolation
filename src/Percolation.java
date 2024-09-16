@@ -1,170 +1,165 @@
-import edu.princeton.cs.algs4.StdOut;
-import edu.princeton.cs.algs4.StdRandom;
+import edu.princeton.cs.algs4.WeightedQuickUnionUF;
 
-import java.util.InputMismatchException;
+import java.util.Arrays;
 
 public class Percolation {
-    private int[][] grid;
-    private int[][] full;
-    private int size;
-    private int open;
-    private boolean percolates;
+    /**
+     * Variable representing {@code WeightedQuickUnionUF} class
+     * which implements weighted quick union-find algorithms
+     *
+     * @see WeightedQuickUnionUF
+     */
+    private final WeightedQuickUnionUF weightedQuickUnionUF;
+    /**
+     * {@code boolean} array representing the indexes of all sites:
+     * {@code true} - site is already opened
+     * {@code false} - site is closed yet
+     */
+    private final boolean[] opened;
+    /**
+     * {@code int} variable representing the grid's side length
+     */
+    private final int N;
+    /**
+     * {@code int} variable representing the reserved site's indices.
+     * It is used for simplified union with top/bottom row of the grid
+     */
+    private final int firstReserved, secondReserved;
 
-    // creates n-by-n grid, with all sites initially blocked
-    public Percolation(int n) {
-        try {
-            if (n <= 0) {
-                throw new IllegalArgumentException();
-            }
-            grid = new int[n][n];
-            full = new int[n][n];
-            for (int i = 0; i < n; i++) {
-                for (int j = 0; j < n; j++) {
-                    grid[i][j] = 0;
-                    full[i][j] = 0;
-                }
-            }
-            percolates = false;
-            size = n;
-            open = 0;
-        }
-        catch(IllegalArgumentException iae) {
-            System.out.println("The size of the grid must be greater than 0.");
-            System.out.println("Please run the program again");
-        }
-        catch(InputMismatchException ime) {
-            System.out.println("The size of the grid must be an integer.");
-            System.out.println("Please run the program again");
-        }
+    /**
+     * Takes {@code int} variable and creates N*N grid
+     * for solving Percolation problem on it
+     *
+     * @param N grid's side length
+     * @see assignment1.utils.PercolationVisualizer
+     * @see WeightedQuickUnionUF#WeightedQuickUnionUF(int)
+     */
+    public Percolation(int N) {
+        this.N = N;
+        firstReserved = N * N;
+        secondReserved = firstReserved + 1;
+        weightedQuickUnionUF = new WeightedQuickUnionUF(secondReserved + 1);
+        opened = new boolean[firstReserved];
     }
 
-    // opens the site (row, col) if it is not open already
-    public void open(int row, int col) {
-        try {
-            if (row <= 0 || col <= 0 || row > size || col > size) {
-                throw new IllegalArgumentException();
-            }
-                grid[row - 1][col - 1] = 1;
-                open++;
 
-                /*The following if-else statements check for an adjacent full
-                cell and change the cell to full if an adjacent cell is full.
-                 */
-                if (row == 1) {
-                    full[row - 1][col - 1] = 1;
-                } else {
-                    if ( row < size) {
-                        if ( col > 1 && col < size) {
-                            if (isFull(row - 1, col ) ||
-                                    isFull(row , col - 1) ||
-                                    isFull(row , col + 1) ) {
-                                full[row - 1][col - 1] = 1;
-                            }
-                        }
-                        if ( col == size) {
-                            if (isFull(row - 1, size ) ||
-                                    isFull(row , size - 1) ) {
-                                full[row - 1][col - 1] = 1;
-                            }
-                        }
-                        if ( col == 1 ) {
-                            if (isFull(row , 2) ||
-                                    isFull(row - 1 , 1) ) {
-                                full[row - 1][col - 1] = 1;
-                            }
-                        }
-                    }
-                    if ((row == size) && (isFull(row - 1, col ) ) ) {
-                        full[row - 1][col - 1] = 1;
-                        percolates = true;
-                    }
-                }
-        }
-        catch(IllegalArgumentException iae) {
-            System.out.println("The size of the grid must be greater than 0.");
-            System.out.println("Please run the program again");
-        }
-        catch(InputMismatchException ime) {
-            System.out.println("The size of the grid must be an integer.");
-            System.out.println("Please run the program again");
-        }
+    /**
+     * Shows if the site with given row and column is opened
+     *
+     * @param y row index
+     * @param x column index
+     * @return {@code true} if site is opened,
+     * {@code false} if it's not
+     * @see #validate(int, int)
+     */
+    public boolean isOpen(int y, int x) {
+        validate(x, y);
+        return opened[xyTo1D(y, x)];
     }
 
-    // is the site (row, col) open?
-    public boolean isOpen(int row, int col) {
-        try {
-            if (row <= 0 || col <= 0 || row > size || col > size) {
-                throw new IllegalArgumentException();
-            }
-            return grid[row - 1][col - 1] == 1;
+    /**
+     * Opens the site with given row and column
+     *
+     * @param y row index
+     * @param x column index
+     * @see #validate(int, int)
+     * @see WeightedQuickUnionUF#union(int, int)
+     * @see #connectIfIsOpened(int, int...)
+     */
+    public void open(int y, int x) {
+        validate(x, y);
+        int index = xyTo1D(y, x),
+                right = index + 1,
+                left = index - 1,
+                up = index - N,
+                down = index + N;
+        opened[index] = true;
+        if (y == 1) {
+            weightedQuickUnionUF.union(index, firstReserved);
+        } else if (y == N) {
+            weightedQuickUnionUF.union(index, secondReserved);
         }
-        catch(IllegalArgumentException iae) {
-            System.out.println("The size of the grid must be greater than 0.");
-            System.out.println("Please run the program again");
-        }
-        catch(InputMismatchException ime) {
-            System.out.println("The size of the grid must be an integer.");
-            System.out.println("Please run the program again");
-        }
-        return false;
+        connectIfIsOpened(index, right, left, up, down);
     }
 
-    // is the site (row, col) full?
-    public boolean isFull(int row, int col) {
-        try {
-            if (row <= 0 || col <= 0 || row > size || col > size) {
-                throw new IllegalArgumentException();
-            }
-            return full[row - 1][col - 1] == 1;
-        }
-        catch(IllegalArgumentException iae) {
-            StdOut.println("The size of the grid must be greater than 0.");
-            StdOut.println("Please run the program again");
-        }
-        catch(InputMismatchException ime) {
-            StdOut.println("The size of the grid must be an integer.");
-            StdOut.println("Please run the program again");
-        } return false;
+
+    /**
+     * Shows if the site with given column and row is full with liquid
+     *
+     * @param y row index
+     * @param x column index
+     * @return {@code true} if site is full,
+     * {@code false} if it's not
+     * @see WeightedQuickUnionUF#connected(int, int)
+     */
+    public boolean isFull(int y, int x) {
+        validate(x, y);
+        return weightedQuickUnionUF.connected(xyTo1D(y, x), firstReserved);
     }
 
-    // returns the number of open sites
-    public int numberOfOpenSites() {
-        return open;
-    }
-
-    // does the system percolate?
+    /**
+     * Shows if the whole grid percolates
+     *
+     * @return {@code true} if the grid percolates,
+     * {@code false} if it doesn't
+     * @see WeightedQuickUnionUF#connected(int, int)
+     */
     public boolean percolates() {
-        return percolates;
+        return weightedQuickUnionUF.connected(firstReserved, secondReserved);
     }
 
-    public static void main(String[] args) {
-        Percolation perc = new Percolation(5);
-        int count = 0;
-        while (!perc.percolates && count < 25) {
-            int row = StdRandom.uniformInt(perc.size) + 1;
-            int col = StdRandom.uniformInt(perc.size) + 1;
-            if (!perc.isOpen(row, col)) {
-                perc.open(row, col);
-                count++;
-            }
+    /**
+     * Connects two sites if they are both opened
+     *
+     * @param main  index of the first site in 1D array
+     * @param others index of the neighboring sites in 1D array
+     * @see #neighbourIsOpened(int, int)
+     * @see WeightedQuickUnionUF#union(int, int)
+     */
+    private void connectIfIsOpened(int main, int... others) {
+        Arrays.stream(others)
+                .filter(site -> neighbourIsOpened(main, site))
+                .forEach(site -> weightedQuickUnionUF.union(main, site));
+    }
+
+    /**
+     * Checks if the second site is opened and
+     * if it's not already connected to the first one
+     *
+     * @param first  index of the first site in 1D array
+     * @param second index of the second site in 1D array
+     * @return {@code true} if the second site is opened,
+     * not connected to the first one and is in bounds,
+     * {@code false} if one of these conditions fails
+     */
+    private boolean neighbourIsOpened(int first, int second) {
+        return (first > second ? second >= 0 : second < firstReserved)
+                && opened[second]
+                && !weightedQuickUnionUF.connected(first, second);
+    }
+
+    /**
+     * Validates row and column indices of the site
+     *
+     * @param x column index
+     * @param y row index
+     * @throws IndexOutOfBoundsException if one of the indexes less
+     *                                   or equal to zero or more than grid's side size
+     */
+    private void validate(int x, int y) {
+        if (x <= 0 || x > N || y <= 0 || y > N) {
+            throw new IndexOutOfBoundsException("one of the indexes is out of bounds");
         }
-        for (int i = 0; i < perc.size; i++) {
-            for (int j = 0; j < perc.size; j++) {
-                StdOut.print(perc.grid[i][j] + " " );
-            }
-            StdOut.print("   ");
-            for (int j = 0; j < perc.size; j++) {
-                StdOut.print(perc.full[i][j] + " " );
-            }
-            StdOut.println();
-        }
-        if(perc.percolates()) {
-            StdOut.println("Model percolated. Iterations: " + count);
-            StdOut.println("Total number of open sites: " + perc.numberOfOpenSites());
-        }
-        else {
-            StdOut.println("Model did NOT percolate. Iterations: " + count);
-            StdOut.println("Total number of open sites: " + perc.numberOfOpenSites());
-        }
+    }
+
+    /**
+     * Converts 2D array indices of the site to 1D array index
+     *
+     * @param y row index of the site
+     * @param x column index of the site
+     * @return site's index in 1D array
+     */
+    private int xyTo1D(int y, int x) {
+        return N * (y - 1) + x - 1;
     }
 }
